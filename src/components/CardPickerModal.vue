@@ -133,7 +133,9 @@ export default {
         }
 
         //multicolor conditional
-        return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '',`id=${query.colors.map((token) => translator[token]).join('')}`].join(' ');
+        let colorCombo = query.colors.map((token) => translator[token]).join('');
+
+        return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '',`id=${colorCombo} OR color=${colorCombo}`].join(' ');
       },
       queryCards: async function(query, page = 1) {
         let result = await this.$http.get(`https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(this.scryFallQueryString(query))}`);
