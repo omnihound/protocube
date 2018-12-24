@@ -13,8 +13,7 @@
     "vue-carousel": "^0.16.1",
     "vue-flip": "^0.2.5",
     "vue-nav-tabs": "^0.5.7",
-    "vue-resource": "^1.5.1",
-    "wubrg-sort": "^1.1.0"
+    "vue-resource": "^1.5.1"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.0.1",

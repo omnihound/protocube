@@ -55,7 +55,6 @@
 <script>
 import { Carousel, Slide } from 'vue-carousel';
 import VueFlip from 'vue-flip';
-import * as optimiseSequence from 'wubrg-sort/optimiseSequence'
 import 'vue-nav-tabs/themes/vue-tabs.css'
 
 export default {
@@ -134,32 +133,7 @@ export default {
         }
 
         //multicolor conditional
-        if (query.colors.length === 2) {
-          let missingColors = ['White','Blue','Black','Red','Green'].filter((queryColor) => query.colors.indexOf(queryColor) < 0);
-          let missingColourQuery = missingColors.map((color) => {
-            return `-oracle:{${translator[color]}}`
-          });
-          let conditionalBuilder = (colors) => {
-            let optimised = optimiseSequence(colors);
-
-            return optimised.map((color) => {
-              let otherColor = optimised.find((query) => query != color);
-              
-
-              return [`((oracle:{${translator[color]}} OR oracle:{${translator[optimised[0]]}/${translator[optimised[1]]}})`,
-              `color=${translator[otherColor]})`].join(' ');
-            });
-          };
-
-          let conditional = conditionalBuilder(query.colors);
-
-          return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '', missingColourQuery.join(' '), ' ','(',
-          [`color=${query.colors.map((token) => translator[token]).join('')}`,
-          ...conditional].join(' OR '),')'].join('');
-        }
-
-        //default to just multi for +3
-        return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '',`color=${query.colors.map((token) => translator[token]).join('')}`].join(' ');
+        return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '',`id=${query.colors.map((token) => translator[token]).join('')}`].join(' ');
       },
       queryCards: async function(query, page = 1) {
         let result = await this.$http.get(`https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(this.scryFallQueryString(query))}`);
