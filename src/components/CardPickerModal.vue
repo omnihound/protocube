@@ -124,8 +124,8 @@ export default {
           return typeStringArray.join(' ');
         }
 
-        if (query.colors.length === 0) {
-          return [...typeStringArray, `cmc=${query.cmc}`, 'color=C'].join(' ');
+        if (query.colors.length === 0 || (query.types && query.types.some(type => type === 'Artifact'))) {
+          return [...typeStringArray, `cmc=${query.cmc}`].join(' ');
         }
 
         if (query.colors.length === 1) {
