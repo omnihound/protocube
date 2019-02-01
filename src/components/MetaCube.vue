@@ -21,6 +21,14 @@
                         </div>
                     </div>
                 </div>
+                <div class="column">
+                    <div class="field">
+                        <label class="label">Export</label>
+                        <div class="control">
+                            <button class="button is-link is-fullwidth" @click="copyToClipboard">Copy to Clipboard</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
         <section class="section">
@@ -32,7 +40,7 @@
                                 <ul v-bind:key="[group,type,stat.cmc].join('.')" v-for="stat in filterByType(group, type)">
                                     <li><span>cmc {{stat.cmc}}</span><button v-if="extraSlots() > 0" class="button is-small is-rounded" @click="addSlot(stat)">+</button><button v-if="stat.cardSlots > 0" class="button is-small is-rounded" @click="removeSlot(stat)">-</button></li>
                                     <li v-bind:key="[card.name, index].join('.')" v-for="(card,index) in stat.cards">
-                                        <v-popover :boundaries-element="body" placement="right">
+                                        <v-popover boundaries-element="body" placement="right">
                                             <span class="tooltip-target b3 is-size-7">{{card.name}}</span>
                                             <template slot="popover">
                                                 <div v-if="card.image_uris" style="width: 200px">
@@ -43,7 +51,7 @@
                                                     <img style="width: 175px; height: auto;"  :src="card.card_faces[1].image_uris.normal" />
                                                 </div>   
                                             </template>
-                                        </v-popover>    
+                                        </v-popover>
                                         
                                         <button class="button is-small is-rounded" @click="removeCard(card)">-</button>
                                     </li>
@@ -61,7 +69,7 @@
                             {{group.join(', ')}} 
                             <ul>
                                 <li v-bind:key="[card.name, index].join('.')" v-for="(card,index) in filterByMultiGroup(group).cards">
-                                        <v-popover :boundaries-element="body" placement="right">
+                                        <v-popover boundaries-element="body" placement="right">
                                             <span class="tooltip-target b3 is-size-7">{{card.name}}</span>
                                             <template slot="popover">
                                                 <div v-if="card.image_uris" style="width: 200px">
@@ -86,23 +94,14 @@
         </section>
     </div>
     </v-tab>
-
-    <v-tab title="View List">
-            <div class="tile is-12">
-                Make some additions to the first tab, and copy and paste the result from here to your favourite cube manager.
-            </div>
-        <ul>
-            <li v-bind:key="[name,index]" class="column container" v-for="(name, index) in cubeList">{{ name }}</li>
-        </ul>
-    </v-tab>
 </vue-tabs>
 
 </template>
 
 
 <script>
-import {VPopover} from 'v-tooltip'
 import {VueTabs, VTab} from 'vue-nav-tabs'
+import {VPopover} from 'v-tooltip'
 
 export default {
     name: "MetaCube",
@@ -316,36 +315,41 @@ export default {
             };
 
             return translator[token];
+        },
+        copyToClipboard() {
+            let list = [];
+            if (!this.meta) {
+                return list;
+            }
+    
+            var groups = this.getGroups();
+            groups.forEach((group) => {
+                this.getTypes(group).forEach((type) => {
+                    this.meta.mono[group].filter((statBlock) => {
+                        return statBlock.type === type;
+                    }).forEach((statBlock) => {
+                        let names = statBlock.cards.map(card => card.name);
+                        list = [...list, ...names];
+                    });
+                });
+            });
+            this.meta.multicolor.forEach((group) => {
+                let names = group.cards.map(card => card.name);
+                list = [...list, ...names];
+            });
+
+            const cubeList = list.join('\r');
+
+            this.$copyText(cubeList).then(function (e) {
+                this.$toasted.show('Copied list to the clipboard');
+            }.bind(this), function (e) {
+                this.$toasted.show('Something went wrong!');
+            }.bind(this));
+
+            //
         }
     },
     computed: {
-        cubeList: function() {
-          let list = [];
-          if (!this.meta) {
-              return list;
-          }
-  
-          var groups = this.getGroups();
-          groups.forEach((group) => {
-              this.getTypes(group).forEach((type) => {
-                  this.meta.mono[group].filter((statBlock) => {
-                      return statBlock.type === type;
-                  }).forEach((statBlock) => {
-                      let names = statBlock.cards.map(card => card.name);
-
-                      list = [...list, ...names];
-                  });
-              });
-          });
-
-          this.meta.multicolor.forEach((group) => {
-            let names = group.cards.map(card => card.name);
-
-            list = [...list, ...names];
-          });
-
-          return list;
-        }
     },
     beforeMount() {
         this.getMeta();

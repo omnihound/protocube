@@ -140,7 +140,18 @@ export default {
       queryCards: async function(query, page = 1) {
         let result = await this.$http.get(`https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(this.scryFallQueryString(query))}`);
 
-        this.cards = [...this.cards, ...result.body.data.sort((a, b) => ('' + a.name).localeCompare(b.name))];
+        this.cards = [...this.cards, ...result.body.data.map((card) => {
+        return {
+          "id": card.id,
+          "colors": card.colors,
+          "name": card.name,
+          "cmc": card.cmc,
+          "image_uris": card.image_uris ? card.image_uris : null,
+          "type_line": card.type_line,
+          "oracle_text": card.oracle_text,
+          "card_faces": card.card_faces ? card.card_faces : null,
+        }
+        }).sort((a, b) => ('' + a.name).localeCompare(b.name))];
 
         if(result.body.has_more) {
           setTimeout(this.queryCards(this.queryBody(this.query), page + 1), 100);
