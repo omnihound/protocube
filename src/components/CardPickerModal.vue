@@ -26,7 +26,7 @@
                   <span class="is-size-7">{{ card.name }}</span>
                   <img v-if="card.image_uris" v-bind:src="card.image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
                   <div v-if="!card.image_uris">
-                    <vue-flip width="100%" active-hover>
+                    <vue-flip width="100%" height="300px" active-hover>
                       <div slot="front">
                         <img v-bind:src="card.card_faces[0].image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
                       </div>
