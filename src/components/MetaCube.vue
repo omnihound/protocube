@@ -56,7 +56,6 @@
                                         <button class="button is-small is-rounded" @click="removeCard(card)">-</button>
                                     </li>
                                     
-                                    
                                     <li v-bind:key="[group,type,stat.cmc,n].join('.')" v-for="n in openSlots(stat)">
                                         <span class="is-size-7">Open Slot </span><button class="button is-small is-rounded" @click="$emit('open-modal', stat)">+</button>
                                     </li>
@@ -164,11 +163,15 @@ export default {
           var groups = this.getGroups();
           groups.forEach((group) => {
               var slotsAvailable = this.groupSize() - this.countByGroup(group);
+
               var query = this.meta.mono[group].slice();
-              query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsAvailable).forEach((statBlock) => {
-                  statBlock.cardSlots += 1;
-              });
-  
+              if (slotsAvailable > 0) {
+
+                query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsAvailable).forEach((statBlock) => {
+                    statBlock.cardSlots += 1;
+                });
+              }
+
               var slotsToCull = this.countByGroup(group) - this.groupSize();
               if (slotsToCull > 0) {
                   query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsToCull).forEach((statBlock) => {
