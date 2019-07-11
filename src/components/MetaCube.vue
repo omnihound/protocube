@@ -76,7 +76,7 @@
                                                 </div>
                                                 <div v-if="!card.image_uris"  style="width: 350px">
                                                     <img style="width: 175px; height: auto;" :src="card.card_faces[0].image_uris.normal" />
-                                                    <img style="width: 175px; height: auto;"  :src="card.card_faces[1].image_uris.normal" />
+                                                    <img style="width: 175px; height: auto;" :src="card.card_faces[1].image_uris.normal" />
                                                 </div>   
                                             </template>
                                         </v-popover>  
@@ -136,8 +136,16 @@ export default {
           if (!this.meta) {
               return;
           }
-  
-          var groups = this.getGroups();
+
+          this.getTypes('Colorless').forEach((type) => {
+            this.meta.mono['Colorless']
+            .filter((statBlock) => statBlock.type === type)
+            .forEach((statBlock) => {
+              statBlock.cardSlots = Math.floor(this.colorlessSize() * statBlock.mean);
+            });
+          });
+
+          var groups = this.getColoredGroups();
           groups.forEach((group) => {
               this.getTypes(group).forEach((type) => {
                   this.meta.mono[group].filter((statBlock) => {
@@ -160,55 +168,43 @@ export default {
               return;
           }
   
-          var groups = this.getGroups();
+          var groups = this.getColoredGroups();
           groups.forEach((group) => {
-              var slotsAvailable = this.groupSize() - this.countByGroup(group);
+            var slotsAvailable = this.groupSize() - this.countByGroup(group);
 
-              var query = this.meta.mono[group].slice();
-              if (slotsAvailable > 0) {
+            var query = this.meta.mono[group].slice();
+            if (slotsAvailable > 0) {
 
-                query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsAvailable).forEach((statBlock) => {
-                    statBlock.cardSlots += 1;
-                });
-              }
+              query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsAvailable).forEach((statBlock) => {
+                  statBlock.cardSlots += 1;
+              });
+            }
 
-              var slotsToCull = this.countByGroup(group) - this.groupSize();
-              if (slotsToCull > 0) {
-                  query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsToCull).forEach((statBlock) => {
-                      statBlock.cardSlots -= 1;
-                  });
-              }
-          });
-  
-          var multiGroups = this.getMultiGroups();
-          multiGroups.forEach((group) => {
-              var slotsAvailable = this.multiGroupSize() - this.countByMultiGroup(group);
-              if (slotsAvailable > 0) {
-                  let query = this.filterByMultiGroup(group).blocks.slice(0);
-                  query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsAvailable).forEach((statBlock) => {
-                      statBlock.cardSlots += 1;
-                  });
-              }
-  
-              var slotsToCull = this.countByMultiGroup(group) - this.multiGroupSize();
-              if (slotsToCull > 0) {
-                  let query = this.filterByMultiGroup(group).blocks.slice(0);
-                  query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsToCull).forEach((statBlock) => {
-                      statBlock.cardSlots -= 1;
-                  });
-              }
+            var slotsToCull = this.countByGroup(group) - this.groupSize();
+            if (slotsToCull > 0) {
+              query.sort((a,b) => {return b.stdev - a.stdev}).slice(0, slotsToCull).forEach((statBlock) => {
+                  statBlock.cardSlots -= 1;
+              });
+            }
           });
         },
         getGroups() {
           if (!this.meta) {
-                return;
-            }
-  
-            return Object.keys(this.meta.mono);
+              return [];
+          }
+
+          return Object.keys(this.meta.mono);
+        },
+        getColoredGroups() {
+          if (!this.meta) {
+              return [];
+          }
+
+          return Object.keys(this.meta.mono).filter((key) => key !== 'Colorless');
         },
         getMultiGroups() {
             if (!this.meta) {
-                return;
+                return [];
             }
 
             return this.meta.multicolor.map((group) => { return group.colors });
@@ -261,46 +257,50 @@ export default {
             }, 0);
         },
         openSlots(block) {
-            return block.cardSlots - block.cards.length;
+          return block.cardSlots - block.cards.length;
+        },
+        colorlessSize() {
+          //This value probably belongs in the data payload, but just hardcode for now
+          return Math.floor(this.cubeSize - this.multicolorSize) * 0.227;
         },
         groupSize() {
-          var groups = this.getGroups();
+          var groups = this.getColoredGroups();
           var deltaGroup = this.cubeSize % groups.length;
-          return (this.cubeSize - deltaGroup - this.multicolorSize) / groups.length;
+          return Math.floor((this.cubeSize - this.countByGroup('Colorless') - deltaGroup - this.multicolorSize) / groups.length);
         },
         extraSlots() {
-            var groups = this.getGroups();
-            var totalGroupSize = groups.map((group) => { return this.countByGroup(group) }).reduce((sum, count) => { return sum + count }, 0)
-            return this.cubeSize - totalGroupSize - this.multicolorSize;
+          var groups = this.getGroups();
+          var totalGroupSize = groups.map((group) => { return this.countByGroup(group) }).reduce((sum, count) => { return sum + count }, 0)
+          return this.cubeSize - totalGroupSize - this.multicolorSize;
         },
         multiGroupSize() {
-            var multiGroups = this.getMultiGroups();
-            if (this.multicolorSize === 0) {
-                return 0;
-            }
-  
-            var modCount = this.multicolorSize % multiGroups.length;
-  
-            return (this.multicolorSize - modCount) / multiGroups.length;
+          var multiGroups = this.getMultiGroups();
+          if (this.multicolorSize === 0) {
+              return 0;
+          }
+
+          var modCount = this.multicolorSize % multiGroups.length;
+
+          return (this.multicolorSize - modCount) / multiGroups.length;
         },
         removeCard(card) {
-            let group = this.meta.mono["Colorless"].filter((group) => {
-                return group.id === card.category;
-            });
+          let group = this.meta.mono["Colorless"].filter((group) => {
+              return group.id === card.category;
+          });
 
-            if (group.length === 0 && card.colors && card.colors.length === 1) {
-                group = this.meta.mono[this.translateColor(card.colors[0])].filter((group) => {
-                    return group.id === card.category;
-                });
-            } 
-            
-            if (group.length === 0) {
-                group = this.meta.multicolor.filter((group) => {
-                    return group.id === card.category;
-                });
-            }
+          if (group.length === 0 && card.colors && card.colors.length === 1) {
+              group = this.meta.mono[this.translateColor(card.colors[0])].filter((group) => {
+                  return group.id === card.category;
+              });
+          } 
+          
+          if (group.length === 0) {
+              group = this.meta.multicolor.filter((group) => {
+                  return group.id === card.category;
+              });
+          }
 
-            group[0].cards.splice(group[0].cards.indexOf(card), 1)
+          group[0].cards.splice(group[0].cards.indexOf(card), 1)
         },
         addSlot(block) {
             block.cardSlots += 1;

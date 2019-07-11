@@ -125,7 +125,7 @@ export default {
         }
 
         if (query.colors.length === 0 || (query.types && query.types.some(type => type === 'Artifact'))) {
-          return [...typeStringArray, `cmc=${query.cmc}`].join(' ');
+          return [...typeStringArray, `cmc=${query.cmc}`, ``].join(' ');
         }
 
         if (query.colors.length === 1) {
@@ -164,7 +164,9 @@ export default {
             colors = val.colors;
           } else if (val.color) {
             if (val.color !== "Colorless") {
-            colors = [val.color];
+              colors = [val.color];
+            } else {
+              colors = [];
             }
           }
 
