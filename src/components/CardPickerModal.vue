@@ -21,29 +21,38 @@
               </div>
             </div>
             <slot name="body">
-              <carousel v-if="cards.length > 0" :perPageCustom="[[768, 3], [1024, 4]]">
-                <slide v-bind:key="[card.id,index].join('.')" v-for="(card,index) in filterBySearch()" class="p-l-10 p-r-10">
-                  <span class="is-size-7">{{ card.name }}</span>
-                  <img v-if="card.image_uris" v-bind:src="card.image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
-                  <div v-if="!card.image_uris">
-                    <vue-flip width="100%" height="300px" active-hover>
-                      <div slot="front">
-                        <img v-bind:src="card.card_faces[0].image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
+              <Carousel v-if="cards.length > 0" :breakpoints="{ 768: { itemsToShow: 3 }, 1024: { itemsToShow: 4 } }">
+                <Slide v-bind:key="[card.id,index].join('.')" v-for="(card,index) in filterBySearch()" class="p-l-10 p-r-10">
+                  <div style="width:100%">
+                    <span class="is-size-7">{{ card.name }}</span>
+                    <img v-if="card.image_uris" v-bind:src="card.image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
+                    <div v-if="!card.image_uris" class="flip-card" v-bind:class="{ 'is-focused': selected.id === card.id }" @click="selectCard(card)">
+                      <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                          <img v-bind:src="card.card_faces[0].image_uris.normal" />
+                        </div>
+                        <div class="flip-card-back">
+                          <img v-bind:src="card.card_faces[1].image_uris.normal" />
+                        </div>
                       </div>
-                      <div slot="back">
-                        <img v-bind:src="card.card_faces[1].image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
-                      </div>
-                    </vue-flip>
+                    </div>
                   </div>
-                </slide>
-              </carousel>
+                </Slide>
+                <template #addons>
+                  <Navigation />
+                </template>
+              </Carousel>
             </slot>
           </div>
 
           <div class="modal-footer">
             <slot name="footer">
-              <button class="modal-default-button" @click="$emit('close-modal', selected)">
-                OK
+              <button
+                class="confirm-button"
+                :class="{ 'confirm-button--selected': selected.id }"
+                @click="$emit('close-modal', selected)"
+              >
+                {{ selected.id ? 'Add Card' : 'Cancel' }}
               </button>
             </slot>
           </div>
@@ -52,158 +61,104 @@
     </div>
   </transition>
 </template>
-<script>
-import { Carousel, Slide } from 'vue-carousel';
-import VueFlip from 'vue-flip';
-import 'vue-nav-tabs/themes/vue-tabs.css'
+<script setup>
+import { ref, watch } from 'vue'
+import { Carousel, Slide, Navigation } from 'vue3-carousel'
+import 'vue3-carousel/dist/carousel.css'
+import { colorToLetter } from '../utils/colors'
 
-export default {
-    components: {
-      Carousel,
-      Slide,
-      VueFlip
-    },
-    props: {
-      query: Object
-    },
-    data: function() {
-        return {
-          search: '',
-          cards: [],
-          selected: {}
-        }
-    },
-    computed: {
-    },
-    methods: {
-      filterBySearch: function() {
-        let cardRegex = new RegExp(this.search.toLowerCase(), 'g');
-        return this.cards.filter(function (card){
-          let oracle_text;
+const props = defineProps({ query: Object })
+const emit = defineEmits(['close-modal'])
 
-          if (card.card_faces) {
-            oracle_text = card.card_faces.map((face) => face.oracle_text).join(' ');
-          } else {
-            oracle_text = card.oracle_text;
-          }
+const search = ref('')
+const cards = ref([])
+const selected = ref({})
 
-          let matches = [card.name, oracle_text, card.type_line].join(' ').toLowerCase().match(cardRegex);
-          if (!matches) return false;
-          return matches.length > 0;
-        })
-      },
-      selectCard: function(card) {
-        if (card.id === this.selected.id) {
-          this.selected = {};
-        } else {
-          this.selected = card;
-          this.selected.category = this.query.id;
-        }
-      },
-      scryFallQueryString: function(query) {
-        let translator = {
-          "White":"W",
-          "Blue":"U",
-          "Black":"B",
-          "Red":"R",
-          "Green":"G"
-        };
-
-        let typeStringArray = [];
-        
-        if (query.types) {
-          typeStringArray = query.types.reduce((stringTypes, type) => {
-            stringTypes.push(`type=${type}`)
-
-            return stringTypes;
-          }, []);
-        }
-
-
-        if (query.types && query.types.length === 1 && query.types[0] === 'Land') {
-          return typeStringArray.join(' ');
-        }
-
-        if (query.colors.length === 0 || (query.types && query.types.some(type => type === 'Artifact'))) {
-          return [...typeStringArray, `cmc=${query.cmc}`, ``].join(' ');
-        }
-
-        if (query.colors.length === 1) {
-          return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '', `(id=${translator[query.colors[0]]} OR color=${translator[query.colors[0]]})`].join(' ');
-        }
-
-        //multicolor conditional
-        let colorCombo = query.colors.map((token) => translator[token]).join('');
-
-        return [...typeStringArray, query.cmc ? `cmc=${query.cmc}` : '',`(id=${colorCombo} OR color=${colorCombo})`].join(' ');
-      },
-      queryCards: async function(query, page = 1) {
-        let result = await this.$http.get(`https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(this.scryFallQueryString(query))}`);
-
-        this.cards = [...this.cards, ...result.body.data.map((card) => {
-        return {
-          "id": card.id,
-          "colors": card.colors,
-          "name": card.name,
-          "cmc": card.cmc,
-          "image_uris": card.image_uris ? card.image_uris : null,
-          "type_line": card.type_line,
-          "oracle_text": card.oracle_text,
-          "card_faces": card.card_faces ? card.card_faces : null,
-        }
-        }).sort((a, b) => ('' + a.name).localeCompare(b.name))];
-
-        if(result.body.has_more) {
-          setTimeout(this.queryCards(this.queryBody(this.query), page + 1), 100);
-        }
-      },
-      queryBody: function(val) {
-          let colors = [];
-
-          if (val.colors) {
-            colors = val.colors;
-          } else if (val.color) {
-            if (val.color !== "Colorless") {
-              colors = [val.color];
-            } else {
-              colors = [];
-            }
-          }
-
-          let types = null;
-          if (val.color === "Colorless" && val.type === "Creature") {
-            types = ['Artifact','Creature'];
-          } else if (val.type) {
-            types = [val.type]
-          }
-
-          return {cmc: val.cmc,
-            colors,
-            types
-          };
-      },
-      cardUrl: function(card) {
-        if (card.image_uris) {
-          return card.image_uris.normal;
-        }
-      }
-    },
-    beforeMount() {
-    },
-    watch: {
-      selected: function() {
-
-      },
-      query: {
-        immediate: true, 
-        handler (val) {
-          this.cards = [];
-
-          this.queryCards(this.queryBody(val));
-        }
-      }
-    }
+function filterBySearch() {
+  if (!search.value) return cards.value
+  const term = search.value.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const cardRegex = new RegExp(term)
+  return cards.value.filter(card => {
+    const oracleText = card.card_faces
+      ? card.card_faces.map(f => f.oracle_text).join(' ')
+      : card.oracle_text
+    return cardRegex.test([card.name, oracleText, card.type_line].join(' ').toLowerCase())
+  })
 }
+
+function selectCard(card) {
+  if (card.id === selected.value.id) {
+    selected.value = {}
+  } else {
+    selected.value = { ...card, category: props.query.id }
+  }
+}
+
+function scryfallQueryString(query) {
+  const typeFilters = (query.types ?? []).map(t => `type=${t}`)
+
+  if (query.types?.length === 1 && query.types[0] === 'Land') {
+    return typeFilters.join(' ')
+  }
+
+  if (query.colors.length === 0 || query.types?.some(t => t === 'Artifact')) {
+    return [...typeFilters, `cmc=${query.cmc}`].join(' ')
+  }
+
+  if (query.colors.length === 1) {
+    const l = colorToLetter(query.colors[0])
+    return [...typeFilters, query.cmc ? `cmc=${query.cmc}` : '', `(id=${l} OR color=${l})`].join(' ')
+  }
+
+  const combo = query.colors.map(colorToLetter).join('')
+  return [...typeFilters, query.cmc ? `cmc=${query.cmc}` : '', `(id=${combo} OR color=${combo})`].join(' ')
+}
+
+function queryBody(val) {
+  let colors = []
+  if (val.colors) {
+    colors = val.colors
+  } else if (val.color && val.color !== 'Colorless') {
+    colors = [val.color]
+  }
+
+  let types = null
+  if (val.color === 'Colorless' && val.type === 'Creature') {
+    types = ['Artifact', 'Creature']
+  } else if (val.type) {
+    types = [val.type]
+  }
+
+  return { cmc: val.cmc, colors, types }
+}
+
+async function queryCards(query, page = 1) {
+  const url = `https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(scryfallQueryString(query))}`
+  const data = await fetch(url).then(r => r.json())
+
+  const batch = data.data.map(card => ({
+    id: card.id,
+    colors: card.colors,
+    name: card.name,
+    cmc: card.cmc,
+    image_uris: card.image_uris ?? null,
+    type_line: card.type_line,
+    oracle_text: card.oracle_text,
+    card_faces: card.card_faces ?? null,
+  })).sort((a, b) => a.name.localeCompare(b.name))
+
+  cards.value = [...cards.value, ...batch]
+
+  if (data.has_more) {
+    await queryCards(queryBody(props.query), page + 1)
+  }
+}
+
+watch(() => props.query, (val) => {
+  cards.value = []
+  selected.value = {}
+  queryCards(queryBody(val))
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -244,20 +199,98 @@ export default {
   margin: 20px 0;
 }
 
-.modal-default-button {
-  float: right;
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
 }
 
-/*
- * The following styles are auto-applied to elements with
- * transition="modal" when their visibility is toggled
- * by Vue.js.
- *
- * You can easily play with the modal transition by editing
- * these styles.
- */
+.confirm-button {
+  border: none;
+  border-radius: 4px;
+  padding: 8px 28px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #e0e0e0;
+  color: #666;
+  transition: background-color 0.15s, color 0.15s;
+}
 
-.modal-enter {
+.confirm-button.confirm-button--selected {
+  background-color: hsl(171, 100%, 41%);
+  color: #fff;
+}
+
+.confirm-button.confirm-button--selected:hover {
+  background-color: hsl(171, 100%, 34%);
+}
+
+/* Push nav buttons into the gutter so they don't overlay cards */
+:deep(.carousel) {
+  padding: 0 46px;
+}
+
+:deep(.carousel__prev),
+:deep(.carousel__next) {
+  --vc-nav-background: rgba(30, 30, 30, 0.82);
+  --vc-nav-color: #fff;
+  --vc-nav-border-radius: 50%;
+  --vc-nav-width: 36px;
+  --vc-nav-height: 36px;
+  transition: background-color 0.15s;
+}
+
+:deep(.carousel__prev:hover),
+:deep(.carousel__next:hover) {
+  --vc-nav-background: hsl(171, 100%, 41%);
+}
+
+.flip-card {
+  perspective: 1000px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+}
+
+.flip-card:hover .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front img,
+.flip-card-back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4.5% / 3.5%;
+}
+
+.flip-card.is-focused .flip-card-inner {
+  outline: 0.475em solid rgba(0, 209, 178, 0.75);
+  border-radius: 4.5% / 3.5%;
+}
+
+.modal-enter-from {
   opacity: 0;
 }
 
@@ -265,7 +298,7 @@ export default {
   opacity: 0;
 }
 
-.modal-enter .modal-container,
+.modal-enter-from .modal-container,
 .modal-leave-active .modal-container {
   -webkit-transform: scale(1.1);
   transform: scale(1.1);
@@ -289,40 +322,24 @@ img.is-focused {
     animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.55);
   }
   0% {
-    -webkit-transform: translate(0, 0);
     transform: translate(0, 0);
   }
   50% {
-    -webkit-transform: translate(0, 108px);
     transform: translate(0, 108px);
     animation-timing-function: cubic-bezier(0, 0.45, 0.55, 0.9);
   }
   100% {
-    -webkit-transform: translate(0, 0);
     transform: translate(0, 0);
   }
 }
-@-webkit-keyframes lds-ball {
-  0%, 100% {
-    animation-timing-function: cubic-bezier(0.45, 0, 0.9, 0.55);
-  }
-  0% {
-    -webkit-transform: translate(0, 0);
-    transform: translate(0, 0);
-  }
-  50% {
-    -webkit-transform: translate(0, 108px);
-    transform: translate(0, 108px);
-    animation-timing-function: cubic-bezier(0, 0.45, 0.55, 0.9);
-  }
-  100% {
-    -webkit-transform: translate(0, 0);
-    transform: translate(0, 0);
-  }
-}
+
 .lds-ball {
   position: relative;
+  width: 200px !important;
+  height: 200px !important;
+  transform: translate(-100px, -100px) scale(1) translate(100px, 100px);
 }
+
 .lds-ball div {
   position: absolute;
   width: 52px;
@@ -331,13 +348,6 @@ img.is-focused {
   background: hsl(171, 100%, 41%);
   left: 74px;
   top: 20px;
-  -webkit-animation: lds-ball 1s linear infinite;
   animation: lds-ball 1s linear infinite;
-}
-.lds-ball {
-  width: 200px !important;
-  height: 200px !important;
-  -webkit-transform: translate(-100px, -100px) scale(1) translate(100px, 100px);
-  transform: translate(-100px, -100px) scale(1) translate(100px, 100px);
 }
 </style>
