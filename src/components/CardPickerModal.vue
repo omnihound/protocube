@@ -82,7 +82,10 @@ function filterBySearch() {
     const oracleText = card.card_faces
       ? card.card_faces.map(f => f.oracle_text).join(' ')
       : card.oracle_text
-    return cardRegex.test([card.name, oracleText, card.type_line].join(' ').toLowerCase())
+    const pt = card.card_faces
+      ? card.card_faces.filter(f => f.power != null).map(f => `${f.power}/${f.toughness}`).join(' ')
+      : (card.power != null ? `${card.power}/${card.toughness}` : '')
+    return cardRegex.test([card.name, oracleText, card.type_line, pt].join(' ').toLowerCase())
   })
 }
 
@@ -134,13 +137,15 @@ function queryBody(val) {
 
 async function queryCards(query, page = 1) {
   const url = `https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(scryfallQueryString(query))}`
-  const data = await fetch(url).then(r => r.json())
+  const response = await fetch(url).then(r => r.json())
 
-  const batch = data.data.map(card => ({
+  const batch = response.data.map(card => ({
     id: card.id,
     colors: card.colors,
     name: card.name,
     cmc: card.cmc,
+    power: card.power ?? null,
+    toughness: card.toughness ?? null,
     image_uris: card.image_uris ?? null,
     type_line: card.type_line,
     oracle_text: card.oracle_text,
@@ -149,8 +154,8 @@ async function queryCards(query, page = 1) {
 
   cards.value = [...cards.value, ...batch]
 
-  if (data.has_more) {
-    await queryCards(queryBody(props.query), page + 1)
+  if (response.has_more) {
+    await queryCards(query, page + 1)
   }
 }
 

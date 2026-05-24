@@ -95,7 +95,7 @@ function recalculateSlots() {
 }
 
 async function fetchMeta() {
-  const data = await fetch('/data.json').then(r => r.json())
+  const data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(r => r.json())
   meta.value = data
   recalculateSlots()
 }
@@ -125,7 +125,9 @@ function addCard(card) {
 
 function removeCard(card) {
   const group = findGroup(card)
-  if (group) group.cards.splice(group.cards.indexOf(card), 1)
+  if (!group) return
+  const i = group.cards.indexOf(card)
+  if (i !== -1) group.cards.splice(i, 1)
 }
 
 export function useCube() {
