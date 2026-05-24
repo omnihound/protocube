@@ -15,14 +15,20 @@
                 <input v-model="search" class="input is-primary" type="text" placeholder="Search for text!">
               </div>
             </div>
-            <div class="lds-css" v-if="cards.length === 0" >
-              <div style="width:100%;height:100%;margin:0 auto" class="lds-ball" >
+            <div class="lds-css" v-if="queryLoading">
+              <div style="width:100%;height:100%;margin:0 auto" class="lds-ball">
                 <div></div>
               </div>
             </div>
+            <div v-else-if="queryError" class="query-error">
+              ⚠ {{ queryError }}
+            </div>
+            <div v-else-if="filteredCards.length === 0" class="query-empty">
+              No cards match your search.
+            </div>
             <slot name="body">
-              <Carousel v-if="cards.length > 0" :breakpoints="{ 768: { itemsToShow: 3 }, 1024: { itemsToShow: 4 } }">
-                <Slide v-bind:key="[card.id,index].join('.')" v-for="(card,index) in filterBySearch()" class="p-l-10 p-r-10">
+              <Carousel v-if="!queryLoading && !queryError && filteredCards.length > 0" :breakpoints="{ 768: { itemsToShow: 3 }, 1024: { itemsToShow: 4 } }">
+                <Slide v-bind:key="[card.id,index].join('.')" v-for="(card,index) in filteredCards" class="p-l-10 p-r-10">
                   <div style="width:100%">
                     <span class="is-size-7">{{ card.name }}</span>
                     <img v-if="card.image_uris" v-bind:src="card.image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
@@ -62,7 +68,7 @@
   </transition>
 </template>
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Carousel, Slide, Navigation } from 'vue3-carousel'
 import 'vue3-carousel/dist/carousel.css'
 import { colorToLetter } from '../utils/colors'
@@ -71,12 +77,21 @@ const props = defineProps({ query: Object })
 const emit = defineEmits(['close-modal'])
 
 const search = ref('')
+const debouncedSearch = ref('')
 const cards = ref([])
 const selected = ref({})
+const queryError = ref(null)
+const queryLoading = ref(false)
 
-function filterBySearch() {
-  if (!search.value) return cards.value
-  const term = search.value.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+let searchTimeout = null
+watch(search, val => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => { debouncedSearch.value = val }, 300)
+})
+
+const filteredCards = computed(() => {
+  if (!debouncedSearch.value) return cards.value
+  const term = debouncedSearch.value.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const cardRegex = new RegExp(term)
   return cards.value.filter(card => {
     const oracleText = card.card_faces
@@ -87,7 +102,7 @@ function filterBySearch() {
       : (card.power != null ? `${card.power}/${card.toughness}` : '')
     return cardRegex.test([card.name, oracleText, card.type_line, pt].join(' ').toLowerCase())
   })
-}
+})
 
 function selectCard(card) {
   if (card.id === selected.value.id) {
@@ -136,32 +151,49 @@ function queryBody(val) {
 }
 
 async function queryCards(query, page = 1) {
-  const url = `https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(scryfallQueryString(query))}`
-  const response = await fetch(url).then(r => r.json())
+  if (page === 1) {
+    queryLoading.value = true
+    queryError.value = null
+  }
+  try {
+    const url = `https://api.scryfall.com/cards/search?order=name&page=${page}&q=${encodeURIComponent(scryfallQueryString(query))}`
+    const response = await fetch(url).then(r => r.json())
 
-  const batch = response.data.map(card => ({
-    id: card.id,
-    colors: card.colors,
-    name: card.name,
-    cmc: card.cmc,
-    power: card.power ?? null,
-    toughness: card.toughness ?? null,
-    image_uris: card.image_uris ?? null,
-    type_line: card.type_line,
-    oracle_text: card.oracle_text,
-    card_faces: card.card_faces ?? null,
-  })).sort((a, b) => a.name.localeCompare(b.name))
+    if (response.object === 'error') {
+      queryError.value = response.details ?? 'No cards found for this slot.'
+      return
+    }
 
-  cards.value = [...cards.value, ...batch]
+    const batch = response.data.map(card => ({
+      id: card.id,
+      colors: card.colors,
+      name: card.name,
+      cmc: card.cmc,
+      power: card.power ?? null,
+      toughness: card.toughness ?? null,
+      image_uris: card.image_uris ?? null,
+      type_line: card.type_line,
+      oracle_text: card.oracle_text,
+      card_faces: card.card_faces ?? null,
+    })).sort((a, b) => a.name.localeCompare(b.name))
 
-  if (response.has_more) {
-    await queryCards(query, page + 1)
+    cards.value = [...cards.value, ...batch]
+
+    if (response.has_more) {
+      await queryCards(query, page + 1)
+    }
+  } catch (e) {
+    queryError.value = 'Could not reach Scryfall. Check your connection and try again.'
+  } finally {
+    if (page === 1) queryLoading.value = false
   }
 }
 
 watch(() => props.query, (val) => {
   cards.value = []
   selected.value = {}
+  debouncedSearch.value = ''
+  search.value = ''
   queryCards(queryBody(val))
 }, { immediate: true })
 </script>
@@ -202,6 +234,17 @@ watch(() => props.query, (val) => {
 
 .modal-body {
   margin: 20px 0;
+}
+
+.query-error,
+.query-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+.query-error {
+  color: #cc3333;
 }
 
 .modal-footer {

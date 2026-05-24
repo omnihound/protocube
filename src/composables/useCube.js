@@ -4,6 +4,8 @@ import { letterToColor } from '../utils/colors'
 const meta = ref(null)
 const cubeSize = ref(360)
 const multicolorSize = ref(0)
+const loading = ref(false)
+const error = ref(null)
 
 const groups = computed(() => meta.value ? Object.keys(meta.value.mono) : [])
 const coloredGroups = computed(() => groups.value.filter(k => k !== 'Colorless'))
@@ -95,9 +97,17 @@ function recalculateSlots() {
 }
 
 async function fetchMeta() {
-  const data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(r => r.json())
-  meta.value = data
-  recalculateSlots()
+  loading.value = true
+  error.value = null
+  try {
+    const data = await fetch(`${import.meta.env.BASE_URL}data.json`).then(r => r.json())
+    meta.value = data
+    recalculateSlots()
+  } catch (e) {
+    error.value = 'Failed to load cube data. Please refresh the page.'
+  } finally {
+    loading.value = false
+  }
 }
 
 function findGroup(card) {
@@ -135,6 +145,8 @@ export function useCube() {
     meta,
     cubeSize,
     multicolorSize,
+    loading,
+    error,
     groups,
     multiGroups,
     extraSlots,

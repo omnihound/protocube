@@ -1,5 +1,11 @@
 <template>
   <div>
+    <div v-if="loading" class="loading-state">Loading cube data…</div>
+    <div v-else-if="error" class="error-state">
+      <span>⚠ {{ error }}</span>
+      <button class="button is-small" @click="fetchMeta">Retry</button>
+    </div>
+    <template v-else>
     <section class="section">
       <div class="columns">
         <div class="column">
@@ -92,6 +98,7 @@
         </div>
       </div>
     </section>
+    </template>
   </div>
 </template>
 
@@ -104,6 +111,8 @@ const {
   meta,
   cubeSize,
   multicolorSize,
+  loading,
+  error,
   groups,
   multiGroups,
   extraSlots,
@@ -149,6 +158,21 @@ fetchMeta()
 </script>
 
 <style scoped>
+.loading-state {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+  padding: 2rem;
+  color: #cc3333;
+}
+
 .v-popper {
     display:inline-block;
     margin-left: .1em;
