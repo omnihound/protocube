@@ -27,12 +27,24 @@
               No cards match your search.
             </div>
             <slot name="body">
-              <Carousel v-if="!queryLoading && !queryError && filteredCards.length > 0" :breakpoints="{ 768: { itemsToShow: 3 }, 1024: { itemsToShow: 4 } }">
+              <Carousel v-if="!queryLoading && !queryError && filteredCards.length > 0" :breakpoints="{ 480: { itemsToShow: 2 }, 768: { itemsToShow: 3 }, 1024: { itemsToShow: 4 } }">
                 <Slide v-bind:key="[card.id,index].join('.')" v-for="(card,index) in filteredCards" class="p-l-10 p-r-10">
                   <div style="width:100%">
                     <span class="is-size-7">{{ card.name }}</span>
-                    <img v-if="card.image_uris" v-bind:src="card.image_uris.normal" @click="selectCard(card)" v-bind:class="{ 'is-focused': selected.id === card.id }" />
-                    <div v-if="!card.image_uris" class="flip-card" v-bind:class="{ 'is-focused': selected.id === card.id }" @click="selectCard(card)">
+                    <img v-if="card.image_uris"
+                      v-bind:src="card.image_uris.normal"
+                      @click="selectCard(card)"
+                      @mouseenter="hoverCard = card"
+                      @mouseleave="hoverCard = null"
+                      v-bind:class="{ 'is-focused': selected.id === card.id }"
+                    />
+                    <div v-if="!card.image_uris"
+                      class="flip-card"
+                      v-bind:class="{ 'is-focused': selected.id === card.id }"
+                      @click="selectCard(card)"
+                      @mouseenter="hoverCard = card"
+                      @mouseleave="hoverCard = null"
+                    >
                       <div class="flip-card-inner">
                         <div class="flip-card-front">
                           <img v-bind:src="card.card_faces[0].image_uris.normal" />
@@ -66,6 +78,20 @@
       </div>
     </div>
   </transition>
+
+  <Teleport to="body">
+    <Transition name="zoom-fade">
+      <div v-if="hoverCard" class="card-zoom-overlay" @mouseenter="hoverCard = null">
+        <template v-if="hoverCard.image_uris">
+          <img :src="hoverCard.image_uris.normal" class="card-zoom-img" />
+        </template>
+        <template v-else>
+          <img :src="hoverCard.card_faces[0].image_uris.normal" class="card-zoom-img" />
+          <img :src="hoverCard.card_faces[1].image_uris.normal" class="card-zoom-img" />
+        </template>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
@@ -82,6 +108,7 @@ const cards = ref([])
 const selected = ref({})
 const queryError = ref(null)
 const queryLoading = ref(false)
+const hoverCard = ref(null)
 
 let searchTimeout = null
 watch(search, val => {
@@ -217,7 +244,7 @@ watch(() => props.query, (val) => {
 }
 
 .modal-container {
-  width: 1000px;
+  width: min(1000px, 95vw);
   margin: 0px auto;
   padding: 20px 30px;
   background-color: #fff;
@@ -293,6 +320,35 @@ watch(() => props.query, (val) => {
 :deep(.carousel__prev:hover),
 :deep(.carousel__next:hover) {
   --vc-nav-background: hsl(171, 100%, 41%);
+}
+
+.card-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.card-zoom-img {
+  width: min(260px, 38vw);
+  border-radius: 4.5% / 3.5%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.zoom-fade-enter-active,
+.zoom-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.zoom-fade-enter-from,
+.zoom-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
 }
 
 .flip-card {

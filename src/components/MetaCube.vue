@@ -21,7 +21,7 @@
           <div class="field">
             <label class="label">Multicolor Size</label>
             <div class="control">
-              <input v-model="multicolorSize" class="input" type="number" step="10" placeholder="Multicolor Size">
+              <input v-model="multicolorSize" class="input" type="number" step="10" min="0" placeholder="Multicolor Size">
             </div>
           </div>
         </div>
@@ -131,7 +131,10 @@ const {
 defineEmits(['open-modal'])
 
 watch(cubeSize, recalculateSlots)
-watch(multicolorSize, recalculateSlots)
+watch(multicolorSize, (val) => {
+  if (val < 0) multicolorSize.value = 0
+  else recalculateSlots()
+})
 
 function copyToClipboard() {
   if (!meta.value) return
