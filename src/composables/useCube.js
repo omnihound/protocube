@@ -12,9 +12,57 @@ const DEFAULT_CUBE_SIZE = 360
 const DEFAULT_MULTICOLOR_SIZE = 0
 let isRestoring = false
 
+const BASIC_LAND_TYPES = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'])
+const BASE_TYPES = new Set([
+  'Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land',
+  'Planeswalker', 'Battle', 'Tribal', 'Dungeon', 'Conspiracy',
+  'Basic', 'Legendary', 'Snow', 'World', 'Ongoing',
+])
+
+export function cardTags(card) {
+  const tags = new Set(card.keywords ?? [])
+  const dash = (card.type_line ?? '').indexOf('—')
+  if (dash !== -1) {
+    card.type_line.slice(dash + 1).trim().split(/\s+/).forEach(s => {
+      if (/^[A-Za-z]+$/.test(s) && !BASIC_LAND_TYPES.has(s) && !BASE_TYPES.has(s)) tags.add(s)
+    })
+  }
+  return tags
+}
+
+const selectedTags = ref(new Set())
+
+function toggleTag(tag) {
+  const next = new Set(selectedTags.value)
+  if (next.has(tag)) next.delete(tag)
+  else next.add(tag)
+  selectedTags.value = next
+}
+
+function clearSelectedTags() {
+  selectedTags.value = new Set()
+}
+
 const groups = computed(() => meta.value ? Object.keys(meta.value.mono) : [])
 const coloredGroups = computed(() => groups.value.filter(k => k !== 'Colorless'))
 const multiGroups = computed(() => meta.value ? meta.value.multicolor.map(g => g.colors) : [])
+
+const tagCloud = computed(() => {
+  if (!meta.value) return []
+  const freq = {}
+
+  const allCards = []
+  Object.values(meta.value.mono).forEach(blocks => blocks.forEach(b => allCards.push(...b.cards)))
+  meta.value.multicolor.forEach(g => allCards.push(...g.cards))
+
+  allCards.forEach(card => {
+    cardTags(card).forEach(t => { freq[t] = (freq[t] ?? 0) + 1 })
+  })
+
+  return Object.entries(freq)
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+})
 
 function colorlessSize() {
   return Math.floor(cubeSize.value - multicolorSize.value) * 0.227
@@ -241,6 +289,10 @@ export function useCube() {
     error,
     groups,
     multiGroups,
+    tagCloud,
+    selectedTags,
+    toggleTag,
+    clearSelectedTags,
     extraSlots,
     getTypes,
     filterByType,

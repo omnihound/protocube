@@ -43,6 +43,9 @@
         </div>
       </div>
     </section>
+    <section>
+      <TagCloud />
+    </section>
     <section class="section">
       <div class="columns">
         <div v-bind:key="group" class="column container" v-for="group in groups">
@@ -113,6 +116,7 @@
 <script setup>
 import { useToast } from 'vue-toastification'
 import { useCube } from '../composables/useCube'
+import TagCloud from './TagCloud.vue'
 
 const {
   meta,

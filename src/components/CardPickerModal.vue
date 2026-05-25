@@ -10,6 +10,16 @@
           </div>
 
           <div class="modal-body">
+            <div v-if="selectedTags.size > 0" class="active-tags">
+              <span class="active-tags-label">Tag filters:</span>
+              <span
+                v-for="tag in selectedTags"
+                :key="tag"
+                class="active-tag"
+                @click="toggleTag(tag)"
+                :title="`Remove '${tag}' filter`"
+              >{{ tag }} ×</span>
+            </div>
             <div class="field">
               <div class="control">
                 <input v-model="search" class="input is-primary" type="text" placeholder="Search for text!">
@@ -98,9 +108,12 @@ import { ref, computed, watch } from 'vue'
 import { Carousel, Slide, Navigation } from 'vue3-carousel'
 import 'vue3-carousel/dist/carousel.css'
 import { colorToLetter } from '../utils/colors'
+import { useCube, cardTags } from '../composables/useCube'
 
 const props = defineProps({ query: Object })
 const emit = defineEmits(['close-modal'])
+
+const { selectedTags, toggleTag } = useCube()
 
 const search = ref('')
 const debouncedSearch = ref('')
@@ -117,10 +130,19 @@ watch(search, val => {
 })
 
 const filteredCards = computed(() => {
-  if (!debouncedSearch.value) return cards.value
+  let result = cards.value
+
+  if (selectedTags.value.size > 0) {
+    result = result.filter(card => {
+      const tags = cardTags(card)
+      return [...selectedTags.value].every(t => tags.has(t))
+    })
+  }
+
+  if (!debouncedSearch.value) return result
   const term = debouncedSearch.value.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const cardRegex = new RegExp(term)
-  return cards.value.filter(card => {
+  return result.filter(card => {
     const oracleText = card.card_faces
       ? card.card_faces.map(f => f.oracle_text).join(' ')
       : card.oracle_text
@@ -202,6 +224,7 @@ async function queryCards(query, page = 1) {
       type_line: card.type_line,
       oracle_text: card.oracle_text,
       card_faces: card.card_faces ?? null,
+      keywords: card.keywords ?? [],
     })).sort((a, b) => a.name.localeCompare(b.name))
 
     cards.value = [...cards.value, ...batch]
@@ -261,6 +284,38 @@ watch(() => props.query, (val) => {
 
 .modal-body {
   margin: 20px 0;
+}
+
+.active-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.active-tags-label {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.active-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: hsl(171, 100%, 41%);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.15em 0.6em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.active-tag:hover {
+  background: hsl(171, 100%, 30%);
 }
 
 .query-error,
