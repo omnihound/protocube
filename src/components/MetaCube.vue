@@ -33,6 +33,14 @@
             </div>
           </div>
         </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">Reset</label>
+            <div class="control">
+              <button class="button is-danger is-fullwidth" @click="onReset">Reset to Defaults</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     <section class="section">
@@ -103,7 +111,6 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useCube } from '../composables/useCube'
 
@@ -123,18 +130,18 @@ const {
   countByType,
   multiGroupSize,
   openSlots,
-  recalculateSlots,
   fetchMeta,
+  resetCube,
   removeCard,
 } = useCube()
 
 defineEmits(['open-modal'])
 
-watch(cubeSize, recalculateSlots)
-watch(multicolorSize, (val) => {
-  if (val < 0) multicolorSize.value = 0
-  else recalculateSlots()
-})
+function onReset() {
+  if (window.confirm('Reset all card picks and settings to defaults? This cannot be undone.')) {
+    resetCube()
+  }
+}
 
 function copyToClipboard() {
   if (!meta.value) return
