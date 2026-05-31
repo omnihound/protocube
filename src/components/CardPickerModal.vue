@@ -1,8 +1,8 @@
 <template>
     <transition name="modal">
     <div class="modal-mask">
-      <div class="modal-wrapper">
         <div class="modal-container">
+          <div class="drag-handle" aria-hidden="true"></div>
 
           <div class="modal-header">
             <slot name="header">
@@ -44,16 +44,16 @@
                     <img v-if="card.image_uris"
                       v-bind:src="card.image_uris.normal"
                       @click="selectCard(card)"
-                      @mouseenter="hoverCard = card"
-                      @mouseleave="hoverCard = null"
+                      @pointerenter="e => onPointerEnter(e, card)"
+                      @pointerleave="onPointerLeave"
                       v-bind:class="{ 'is-focused': selected.id === card.id }"
                     />
                     <div v-if="!card.image_uris"
                       class="flip-card"
                       v-bind:class="{ 'is-focused': selected.id === card.id }"
                       @click="selectCard(card)"
-                      @mouseenter="hoverCard = card"
-                      @mouseleave="hoverCard = null"
+                      @pointerenter="e => onPointerEnter(e, card)"
+                      @pointerleave="onPointerLeave"
                     >
                       <div class="flip-card-inner">
                         <div class="flip-card-front">
@@ -85,7 +85,6 @@
             </slot>
           </div>
         </div>
-      </div>
     </div>
   </transition>
 
@@ -159,6 +158,14 @@ function selectCard(card) {
   } else {
     selected.value = { ...card, category: props.query.id }
   }
+}
+
+function onPointerEnter(e, card) {
+  if (e.pointerType === 'mouse') hoverCard.value = card
+}
+
+function onPointerLeave(e) {
+  if (e.pointerType === 'mouse') hoverCard.value = null
 }
 
 function scryfallQueryString(query) {
@@ -252,29 +259,31 @@ watch(() => props.query, (val) => {
 .modal-mask {
   position: fixed;
   z-index: 9998;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background-color: rgba(0, 0, 0, .5);
-  display: table;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
   transition: opacity .3s ease;
 }
 
-.modal-wrapper {
-  display: table-cell;
-  vertical-align: middle;
-}
-
 .modal-container {
-  width: min(1000px, 95vw);
-  margin: 0px auto;
+  width: min(1000px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   padding: 20px 30px;
   background-color: #fff;
-  border-radius: 2px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .33);
-  transition: all .3s ease;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .33);
+  transition: transform .3s ease, opacity .3s ease;
   font-family: Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+.drag-handle {
+  display: none;
 }
 
 .modal-header h3 {
@@ -283,7 +292,47 @@ watch(() => props.query, (val) => {
 }
 
 .modal-body {
-  margin: 20px 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 12px 0;
+  padding-right: 4px;
+}
+
+@media (max-width: 600px) {
+  .modal-mask {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-container {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 16px 24px;
+  }
+
+  .drag-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+
+  .confirm-button {
+    width: 100% !important;
+    padding: 14px !important;
+    font-size: 1rem !important;
+    border-radius: 8px !important;
+  }
+
+  :deep(.carousel__prev),
+  :deep(.carousel__next) {
+    --vc-nav-width: 44px !important;
+    --vc-nav-height: 44px !important;
+  }
 }
 
 .active-tags {
@@ -449,18 +498,27 @@ watch(() => props.query, (val) => {
   border-radius: 4.5% / 3.5%;
 }
 
-.modal-enter-from {
-  opacity: 0;
-}
-
-.modal-leave-active {
+.modal-enter-from,
+.modal-leave-to {
   opacity: 0;
 }
 
 .modal-enter-from .modal-container,
-.modal-leave-active .modal-container {
-  -webkit-transform: scale(1.1);
-  transform: scale(1.1);
+.modal-leave-to .modal-container {
+  transform: translateY(20px);
+}
+
+@media (max-width: 600px) {
+  .modal-enter-from .modal-container,
+  .modal-leave-to .modal-container {
+    transform: translateY(100%);
+  }
+}
+
+@media (hover: none) {
+  .card-zoom-overlay {
+    display: none;
+  }
 }
 
 img.is-focused {

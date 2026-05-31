@@ -59,7 +59,7 @@
                 <button v-if="stat.cardSlots > 0" class="button is-small is-rounded" @click="stat.cardSlots--">-</button>
               </li>
               <li v-bind:key="[card.name, index].join('.')" v-for="(card,index) in stat.cards">
-                <VMenu placement="right">
+                <VMenu placement="auto">
                   <span class="tooltip-target b3 is-size-7">{{card.name}}</span>
                   <template #popper>
                     <div v-if="card.image_uris" style="width: 200px">
@@ -86,7 +86,7 @@
             {{group.join(', ')}}
             <ul>
               <li v-bind:key="[card.name, index].join('.')" v-for="(card,index) in filterByMultiGroup(group).cards">
-                <VMenu placement="right">
+                <VMenu placement="auto">
                   <span class="tooltip-target b3 is-size-7">{{card.name}}</span>
                   <template #popper>
                     <div v-if="card.image_uris" style="width: 200px">
